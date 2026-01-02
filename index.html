@@ -1,764 +1,642 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Payment Database</title>
+    <title>AssetFlow | Enterprise Asset Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9; /* slate-100 */
-        }
-        .container {
-            max-width: 95%;
-        }
-        .form-input {
-            @apply w-full p-3 bg-blue-50 border border-blue-400 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200;
-        }
-        .form-label {
-            @apply block text-sm font-medium text-slate-700 mb-1;
-        }
-        .table-header-cell {
-            @apply p-4 text-left font-bold text-slate-700 bg-slate-200 border-r border-slate-300;
-        }
-        .loading-spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #4f46e5; /* indigo-600 */
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        /* Style for the nested list in the table */
-        .table-payment-list {
-            list-style-type: none;
-            padding-left: 0;
-        }
-        .table-payment-list li::before {
-            content: "•";
-            color: #4f46e5; /* indigo-600 */
-            font-weight: bold;
-            display: inline-block;
-            width: 1em;
-            margin-left: -1em;
-        }
-        table {
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-        th, td {
-            border-color: #e2e8f0;
-        }
-        th:first-child {
-            border-top-left-radius: 0.75rem;
-        }
-        th:last-child {
-            border-top-right-radius: 0.75rem;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
         
-        /* New styles for a more modern form */
-        .form-section {
-            @apply bg-white p-6 rounded-2xl shadow-lg;
-        }
-        .form-section-title {
-            @apply text-xl font-bold text-slate-700 mb-4;
+        .status-badge {
+            @apply px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center;
         }
 
-        /* Custom text shadow for modern look */
-        .text-shadow-lg {
-            text-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
+        .tab-active { @apply border-blue-600 text-blue-600 border-b-2; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     </style>
 </head>
-<body class="bg-slate-100 antialiased">
-    <!-- Main Application Container -->
-    <div id="main-container" class="container mx-auto px-4 py-12">
-        <header class="bg-white rounded-3xl shadow-2xl p-8 mb-12 text-center">
-            <h1 class="text-4xl font-bold tracking-tight text-shadow-lg">
-                <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-blue-600">
-                    Contact Payment Database
-                </span>
-            </h1>
-            <p class="text-slate-500 mt-4 text-lg">Your data is synced in real-time with Firebase.</p>
-        </header>
+<body class="h-full overflow-hidden text-slate-900">
 
-        <!-- User ID Display -->
-        <div id="user-info" class="bg-indigo-50 p-4 rounded-xl mb-8 flex items-center justify-center">
-            <span id="user-id-display" class="font-mono text-xs text-indigo-700"></span>
+<!-- Global Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-xs w-full">
+        <div class="relative">
+            <div class="w-16 h-16 border-4 border-slate-100 rounded-full"></div>
+            <div class="absolute top-0 w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
-        
-        <!-- Button to show form -->
-        <div class="flex justify-center mb-8">
-            <button id="show-form-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                Add New Contact
+        <p class="mt-6 text-slate-800 font-bold">Processing Request</p>
+        <p class="text-slate-400 text-sm">Communicating with server...</p>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden p-4">
+    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-fade-in">
+        <div class="bg-slate-900 p-6 flex justify-between items-center text-white">
+            <div class="flex items-center space-x-4">
+                <div id="modalIcon" class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-xl">
+                    <i class="fas fa-laptop"></i>
+                </div>
+                <div>
+                    <h2 id="modalAssetId" class="text-xl font-bold">ADM-PC-001</h2>
+                    <p id="modalSub" class="text-slate-400 text-xs uppercase tracking-widest font-semibold">Loading Details...</p>
+                </div>
+            </div>
+            <button onclick="closeModal()" class="w-10 h-10 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center">
+                <i class="fas fa-times"></i>
             </button>
         </div>
-
-        <!-- Add/Edit Contact Form -->
-        <div id="contact-form-container" class="bg-gradient-to-br from-indigo-100 to-white rounded-3xl shadow-2xl p-8 mb-12 hidden">
-            <h2 id="form-title" class="text-3xl font-semibold text-slate-800 mb-6">Add New Contact</h2>
-
-            <!-- Success/Error Message -->
-            <div id="message-container" class="hidden p-4 rounded-xl mb-6 text-sm font-medium" role="alert"></div>
-
-            <form id="contact-form" class="space-y-8">
-                <!-- General Details Section -->
-                <div class="form-section">
-                    <h3 class="form-section-title">General Details</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div>
-                            <label for="contactName" class="form-label">Contact Name</label>
-                            <input type="text" id="contactName" name="contactName" class="form-input" required>
-                        </div>
-                        <div>
-                            <label for="contactNumber" class="form-label">Contact Number</label>
-                            <input type="text" id="contactNumber" name="contactNumber" class="form-input">
-                        </div>
-                        <div>
-                            <label for="contractor" class="form-label">Contractor</label>
-                            <input type="text" id="contractor" name="contractor" class="form-input">
-                        </div>
+        <div class="p-8 grid grid-cols-2 gap-8">
+            <div class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Hardware Configuration</label>
+                    <div class="mt-2 space-y-2">
+                        <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500 text-sm">CPU</span><span id="mCpu" class="font-semibold text-sm">--</span></div>
+                        <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500 text-sm">RAM</span><span id="mRam" class="font-semibold text-sm">--</span></div>
+                        <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500 text-sm">Storage</span><span id="mStorage" class="font-semibold text-sm">--</span></div>
+                        <div class="flex justify-between border-b border-slate-100 pb-2"><span class="text-slate-500 text-sm">OS</span><span id="mOs" class="font-semibold text-sm">--</span></div>
                     </div>
                 </div>
-
-                <!-- Contract Prices Section -->
-                <div class="form-section">
-                    <h3 class="form-section-title">Contract Prices</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div>
-                            <label for="contactPrice" class="form-label">Contact Price</label>
-                            <input type="number" step="0.01" id="contactPrice" name="contactPrice" class="form-input">
-                        </div>
-                        <div>
-                            <label for="pSumPrice" class="form-label">P.Sum Price</label>
-                            <input type="number" step="0.01" id="pSumPrice" name="pSumPrice" class="form-input">
-                        </div>
-                        <div>
-                            <label for="contingencies" class="form-label">Contingencies</label>
-                            <input type="number" step="0.01" id="contingencies" name="contingencies" class="form-input">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Details Section -->
-                <div class="form-section">
-                    <h3 class="form-section-title">Payment Details</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <!-- Advance Payment -->
-                        <div class="space-y-4">
-                            <p class="font-bold text-lg text-slate-800">Advance Payment</p>
-                            <div>
-                                <label for="advancePaymentAmount" class="form-label">Amount</label>
-                                <input type="number" step="0.01" id="advancePaymentAmount" name="advancePaymentAmount" class="form-input">
-                            </div>
-                            <div>
-                                <label for="advancePaymentReceivedDate" class="form-label">Received Date</label>
-                                <input type="date" id="advancePaymentReceivedDate" name="advancePaymentReceivedDate" class="form-input">
-                            </div>
-                            <div>
-                                <label for="advancePaymentCompletedDate" class="form-label">Completed Date</label>
-                                <input type="date" id="advancePaymentCompletedDate" name="advancePaymentCompletedDate" class="form-input">
-                            </div>
-                        </div>
-                        
-                        <!-- Part Payment -->
-                        <div class="space-y-4">
-                            <p class="font-bold text-lg text-slate-800">Part Payment</p>
-                            <div>
-                                <label for="partPaymentAmount" class="form-label">Amount</label>
-                                <input type="number" step="0.01" id="partPaymentAmount" name="partPaymentAmount" class="form-input">
-                            </div>
-                            <div>
-                                <label for="partPaymentReceivedDate" class="form-label">Received Date</label>
-                                <input type="date" id="partPaymentReceivedDate" name="partPaymentReceivedDate" class="form-input">
-                            </div>
-                            <div>
-                                <label for="partPaymentCompletedDate" class="form-label">Completed Date</label>
-                                <input type="date" id="partPaymentCompletedDate" name="partPaymentCompletedDate" class="form-input">
-                            </div>
-                        </div>
-
-                        <!-- Final Payment -->
-                        <div class="space-y-4">
-                            <p class="font-bold text-lg text-slate-800">Final Payment</p>
-                            <div>
-                                <label for="finalPaymentAmount" class="form-label">Amount</label>
-                                <input type="number" step="0.01" id="finalPaymentAmount" name="finalPaymentAmount" class="form-input">
-                            </div>
-                            <div>
-                                <label for="finalPaymentReceivedDate" class="form-label">Received Date</label>
-                                <input type="date" id="finalPaymentReceivedDate" name="finalPaymentReceivedDate" class="form-input">
-                            </div>
-                            <div>
-                                <label for="finalPaymentCompletedDate" class="form-label">Completed Date</label>
-                                <input type="date" id="finalPaymentCompletedDate" name="finalPaymentCompletedDate" class="form-input">
-                            </div>
-                        </div>
-
-                        <!-- Variation -->
-                        <div class="space-y-4">
-                            <p class="font-bold text-lg text-slate-800">Variation</p>
-                            <div>
-                                <label for="variationAmount" class="form-label">Amount</label>
-                                <input type="number" step="0.01" id="variationAmount" name="variationAmount" class="form-input">
-                            </div>
-                            <div>
-                                <label for="variationReceivedDate" class="form-label">Received Date</label>
-                                <input type="date" id="variationReceivedDate" name="variationReceivedDate" class="form-input">
-                            </div>
-                            <div>
-                                <label for="variationCompletedDate" class="form-label">Completed Date</label>
-                                <input type="date" id="variationCompletedDate" name="variationCompletedDate" class="form-input">
-                            </div>
-                        </div>
-
-                        <!-- Retention -->
-                        <div class="space-y-4">
-                            <p class="font-bold text-lg text-slate-800">Retention</p>
-                            <div>
-                                <label for="retentionAmount" class="form-label">Amount</label>
-                                <input type="number" step="0.01" id="retentionAmount" name="retentionAmount" class="form-input">
-                            </div>
-                            <div>
-                                <label for="retentionReceivedDate" class="form-label">Received Date</label>
-                                <input type="date" id="retentionReceivedDate" name="retentionReceivedDate" class="form-input">
-                            </div>
-                            <div>
-                                <label for="retentionCompletedDate" class="form-label">Completed Date</label>
-                                <input type="date" id="retentionCompletedDate" name="retentionCompletedDate" class="form-input">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Additional Information Section -->
-                <div class="form-section">
-                    <h3 class="form-section-title">Additional Information</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div>
-                            <label for="relevantOfficer" class="form-label">Relevant Officer</label>
-                            <select id="relevantOfficer" name="relevantOfficer" class="form-input">
-                                <option value="Eng.Madura Dias">Eng.Madura Dias</option>
-                                <option value="Eng.Y S J Kumaranayake">Eng.Y S J Kumaranayake</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="paymentStatus" class="form-label">Payment Status</label>
-                            <select id="paymentStatus" name="paymentStatus" class="form-input">
-                                <option value="Processing">Processing</option>
-                                <option value="On hold">On hold</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Blocked">Blocked</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="currentPaymentProcess" class="form-label">Current Payment Process</label>
-                            <select id="currentPaymentProcess" name="currentPaymentProcess" class="form-input">
-                                <option value="N/A">N/A</option>
-                                <option value="Advance Payment">Advance Payment</option>
-                                <option value="Part Payment">Part Payment</option>
-                                <option value="Final Payment">Final Payment</option>
-                                <option value="Variation">Variation</option>
-                                <option value="Retention">Retention</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mt-6">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea id="notes" name="notes" rows="3" class="form-input"></textarea>
-                    </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="flex justify-center space-x-4">
-                    <button type="submit" id="submit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                        Add Contact
-                    </button>
-                    <button type="button" id="clear-form-btn" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                        Clear Form
-                    </button>
-                    <button type="button" id="cancel-form-btn" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
-        
-        <!-- Custom Confirmation Modal -->
-        <div id="confirm-modal" class="fixed inset-0 z-50 overflow-y-auto hidden">
-            <div class="flex items-center justify-center min-h-screen px-4 py-8">
-                <div class="fixed inset-0 transition-opacity" aria-hidden="true">
-                    <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
-                </div>
-                <div class="bg-white rounded-lg p-6 max-w-sm mx-auto z-50 shadow-lg">
-                    <p id="confirm-message" class="text-lg font-semibold mb-4 text-slate-800">Are you sure you want to delete this contact?</p>
-                    <div class="flex justify-end space-x-4">
-                        <button id="confirm-no-btn" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 font-medium hover:bg-gray-300 transition-colors">Cancel</button>
-                        <button id="confirm-yes-btn" class="px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors">Delete</button>
-                    </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Assignment</label>
+                    <p id="mUser" class="text-lg font-bold mt-1 text-slate-800">--</p>
+                    <p id="mDept" class="text-sm text-slate-500 font-medium tracking-tight">--</p>
                 </div>
             </div>
-        </div>
-        
-        <!-- Filters and Search -->
-        <div class="bg-white rounded-3xl shadow-2xl p-8 mb-8">
-            <h2 class="text-2xl font-semibold text-slate-700 mb-6">Filter & Search</h2>
-            <div class="flex flex-wrap items-end gap-6">
-                <!-- Filter by Process -->
-                <div class="flex-1 min-w-[200px]">
-                    <label for="filterCurrentProcess" class="form-label">Current Process</label>
-                    <select id="filterCurrentProcess" class="form-input">
-                        <option value="all">All</option>
-                        <option value="Advance Payment">Advance Payment</option>
-                        <option value="Part Payment">Part Payment</option>
-                        <option value="Final Payment">Final Payment</option>
-                        <option value="Variation">Variation</option>
-                        <option value="Retention">Retention</option>
-                        <option value="N/A">N/A</option>
-                    </select>
-                </div>
+            <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Current Status</label>
+                <div id="mStatus" class="mt-2 mb-4">--</div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Notes / Remarks</label>
+                <p id="mRemarks" class="mt-1 text-sm text-slate-600 leading-relaxed italic">No remarks provided for this asset.</p>
                 
-                <!-- Filter by Status -->
-                <div class="flex-1 min-w-[200px]">
-                    <label for="filterPaymentStatus" class="form-label">Payment Status</label>
-                    <select id="filterPaymentStatus" class="form-input">
-                        <option value="all">All</option>
-                        <option value="Processing">Processing</option>
-                        <option value="On hold">On hold</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Blocked">Blocked</option>
-                    </select>
-                </div>
-                
-                <!-- Search and Clear Button -->
-                <div class="flex-1 min-w-[250px]">
-                    <label for="searchContactNumber" class="form-label">Search by Contact Number</label>
-                    <div class="flex">
-                        <input type="text" id="searchContactNumber" placeholder="Enter number..." class="form-input rounded-r-none">
-                        <button id="clear-filters-btn" type="button" class="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-3 px-6 rounded-r-xl transition duration-300">
-                            Clear
-                        </button>
-                    </div>
+                <div class="mt-6 pt-6 border-t border-slate-200">
+                    <button id="modalEditBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl transition-all flex items-center justify-center space-x-2">
+                        <i class="fas fa-pen-to-square text-sm"></i>
+                        <span>Modify Record</span>
+                    </button>
                 </div>
             </div>
-        </div>
-
-        <!-- Contacts Table -->
-        <div class="bg-white rounded-3xl shadow-2xl p-8 overflow-x-auto">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <h2 class="text-3xl font-semibold text-slate-700 mb-4 sm:mb-0">Contact Payment List</h2>
-                <!-- Color Legend -->
-                <div class="flex flex-wrap items-center space-x-4 text-sm">
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-green-100 border border-green-300"></span>
-                        <span>Advance</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-blue-100 border border-blue-300"></span>
-                        <span>Part</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-300"></span>
-                        <span>Final</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-red-100 border border-red-300"></span>
-                        <span>Variation</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-purple-100 border border-purple-300"></span>
-                        <span>Retention</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-3 h-3 rounded-full bg-white border border-gray-300"></span>
-                        <span>N/A</span>
-                    </div>
-                </div>
-            </div>
-            <table class="min-w-full">
-                <thead class="bg-slate-200">
-                    <tr>
-                        <th class="table-header-cell rounded-tl-xl">Contact Name</th>
-                        <th class="table-header-cell">Contact Number</th>
-                        <th class="table-header-cell">Contractor</th>
-                        <th colspan="3" class="table-header-cell text-center">Contract Price</th>
-                        <th class="table-header-cell">Payment Breakdown</th>
-                        <th class="table-header-cell">Total Payments</th>
-                        <th class="table-header-cell">Remaining Balance</th>
-                        <th class="table-header-cell">Relevant Officer</th>
-                        <th class="table-header-cell">Payment Status</th>
-                        <th class="table-header-cell">Current Payment Process</th>
-                        <th class="table-header-cell">Notes</th>
-                        <th class="table-header-cell rounded-tr-xl">Actions</th>
-                    </tr>
-                    <tr>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100 text-right">Contact Price</th>
-                        <th class="p-3 border-r bg-slate-100 text-right">P.Sum Price</th>
-                        <th class="p-3 border-r bg-slate-100 text-right">Contingencies</th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 border-r bg-slate-100"></th>
-                        <th class="p-3 bg-slate-100"></th>
-                    </tr>
-                </thead>
-                <tbody id="contacts-table-body" class="bg-white divide-y divide-slate-200">
-                    <!-- Data will be dynamically inserted here -->
-                    <tr>
-                        <td colspan="14" class="p-8 text-center text-slate-500">
-                            <div class="flex justify-center items-center">
-                                <div class="loading-spinner"></div>
-                            </div>
-                            <p class="mt-4">Loading contacts...</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
     </div>
+</div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, doc, onSnapshot, updateDoc, deleteDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        setLogLevel('debug'); // Enable Firestore debug logs
+<div class="flex h-full">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-slate-900 text-white flex-shrink-0 flex flex-col hidden lg:flex">
+        <div class="p-8 flex items-center space-x-4">
+            <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fas fa-cube text-lg"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">AssetFlow</span>
+        </div>
+        
+        <nav class="flex-1 px-6 space-y-2 mt-4">
+            <a href="#" class="group flex items-center space-x-3 bg-white/10 text-white p-3 rounded-2xl transition-all">
+                <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                    <i class="fas fa-chart-line text-sm"></i>
+                </div>
+                <span class="font-semibold">Operations Center</span>
+            </a>
+            <a href="#" class="group flex items-center space-x-3 text-slate-400 hover:bg-white/5 hover:text-white p-3 rounded-2xl transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-slate-700">
+                    <i class="fas fa-database text-sm"></i>
+                </div>
+                <span class="font-semibold">Master Inventory</span>
+            </a>
+            <a href="#" class="group flex items-center space-x-3 text-slate-400 hover:bg-white/5 hover:text-white p-3 rounded-2xl transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center group-hover:bg-slate-700">
+                    <i class="fas fa-shield-halved text-sm"></i>
+                </div>
+                <span class="font-semibold">Audit Logs</span>
+            </a>
+        </nav>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("1. DOM content loaded. Initializing Firebase.");
+        <div class="p-6">
+            <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 border border-slate-700/50 shadow-xl">
+                <div class="flex items-center space-x-4">
+                    <div id="userIcon" class="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center font-bold shadow-lg shadow-blue-900/50 text-lg">?</div>
+                    <div class="overflow-hidden">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Operator ID</p>
+                        <p id="userIdDisplay" class="text-sm font-bold truncate">Establishing...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header class="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-10 flex-shrink-0">
+            <div class="flex items-center flex-1 max-w-2xl">
+                <div class="relative w-full">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                    <input id="searchInput" type="text" placeholder="Search by Asset ID, User, or Model..." 
+                           class="w-full pl-12 pr-6 py-3 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-400 font-medium">
+                </div>
+            </div>
             
-            // Firebase Initialization and Auth
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            <div class="flex items-center space-x-4 ml-8">
+                <div class="h-10 w-[1px] bg-slate-200 mx-2"></div>
+                <button onclick="document.getElementById('formCard').scrollIntoView({behavior:'smooth'})" 
+                        class="bg-slate-900 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center space-x-3 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-slate-200">
+                    <i class="fas fa-plus"></i>
+                    <span>New Registration</span>
+                </button>
+            </div>
+        </header>
 
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const auth = getAuth(app);
-            
-            // UI Elements
-            const showFormBtn = document.getElementById('show-form-btn');
-            const contactFormContainer = document.getElementById('contact-form-container');
-            const cancelFormBtn = document.getElementById('cancel-form-btn');
-            const clearFormBtn = document.getElementById('clear-form-btn');
-            const form = document.getElementById('contact-form');
-            const formTitle = document.getElementById('form-title');
-            const submitBtn = document.getElementById('submit-btn');
-            const messageContainer = document.getElementById('message-container');
-            const contactsTableBody = document.getElementById('contacts-table-body');
-            const filterCurrentProcess = document.getElementById('filterCurrentProcess');
-            const filterPaymentStatus = document.getElementById('filterPaymentStatus');
-            const searchContactNumber = document.getElementById('searchContactNumber');
-            const clearFiltersBtn = document.getElementById('clear-filters-btn');
-            const confirmModal = document.getElementById('confirm-modal');
-            const confirmYesBtn = document.getElementById('confirm-yes-btn');
-            const confirmNoBtn = document.getElementById('confirm-no-btn');
-            const userIdDisplay = document.getElementById('user-id-display');
+        <div class="flex-1 overflow-y-auto p-10 custom-scrollbar">
+            <!-- Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Inventory</p>
+                            <h3 class="text-3xl font-black mt-1" id="statTotal">0</h3>
+                        </div>
+                        <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                            <i class="fas fa-server"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Active Status</p>
+                            <h3 class="text-3xl font-black mt-1 text-emerald-600" id="statWorking">0</h3>
+                        </div>
+                        <div class="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                            <i class="fas fa-check-double"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between text-amber-600">
+                        <div>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Pending Repair</p>
+                            <h3 class="text-3xl font-black mt-1" id="statRepair">0</h3>
+                        </div>
+                        <div class="w-14 h-14 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                            <i class="fas fa-wrench"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between text-rose-600">
+                        <div>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Decommissioned</p>
+                            <h3 class="text-3xl font-black mt-1" id="statScrap">0</h3>
+                        </div>
+                        <div class="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                            <i class="fas fa-recycle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            let editingId = null;
-            let unsubscribe = null;
-            let deleteId = null;
-            let allContacts = [];
-            let isAuthReady = false;
+            <!-- Content Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-10">
+                <!-- Table -->
+                <div class="xl:col-span-2">
+                    <div class="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
+                        <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-black text-slate-800 tracking-tight">Enterprise Asset Registry</h3>
+                                <p class="text-xs text-slate-400 font-medium">Synced with central cloud database</p>
+                            </div>
+                            <div class="flex bg-slate-100 p-1 rounded-xl">
+                                <button class="px-4 py-1.5 text-xs font-bold bg-white rounded-lg shadow-sm text-blue-600">All</button>
+                                <button class="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700">Laptops</button>
+                                <button class="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700">Desktops</button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50">
+                                        <th class="px-8 py-4">Hardware Profile</th>
+                                        <th class="px-8 py-4">Current Custody</th>
+                                        <th class="px-8 py-4">Status</th>
+                                        <th class="px-8 py-4 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="computerTable" class="divide-y divide-slate-50">
+                                    <tr><td colspan="4" class="p-20 text-center"><div class="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-            // Helper functions
-            function formToObject(form) {
-                const formData = new FormData(form);
-                const obj = {};
-                for (const [key, value] of formData.entries()) {
-                    if (['contactPrice', 'pSumPrice', 'contingencies', 'advancePaymentAmount', 'partPaymentAmount', 'finalPaymentAmount', 'variationAmount', 'retentionAmount'].includes(key)) {
-                        obj[key] = value ? Number(value) : 0;
-                    } else {
-                        obj[key] = value;
-                    }
-                }
-                return obj;
-            }
-
-            function showMessage(text, type) {
-                messageContainer.textContent = text;
-                messageContainer.className = `p-4 rounded-xl mb-6 text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
-                messageContainer.classList.remove('hidden');
-                setTimeout(() => {
-                    messageContainer.classList.add('hidden');
-                }, 5000);
-            }
-
-            function showForm() {
-                contactFormContainer.classList.remove('hidden');
-                showFormBtn.classList.add('hidden');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                console.log("Show form button clicked. Form is now visible.");
-            }
-
-            function hideForm() {
-                contactFormContainer.classList.add('hidden');
-                showFormBtn.classList.remove('hidden');
-                form.reset();
-                formTitle.textContent = "Add New Contact";
-                submitBtn.textContent = "Add Contact";
-                editingId = null;
-                console.log("Form hidden and reset.");
-            }
-
-            function showConfirmModal(id) {
-                deleteId = id;
-                confirmModal.classList.remove('hidden');
-                console.log("Showing delete confirmation modal.");
-            }
-
-            function hideConfirmModal() {
-                confirmModal.classList.add('hidden');
-                deleteId = null;
-                console.log("Hiding delete confirmation modal.");
-            }
-
-            // Debounce function to prevent excessive filtering on search input
-            const debounce = (func, delay) => {
-                let timeoutId;
-                return (...args) => {
-                    clearTimeout(timeoutId);
-                    timeoutId = setTimeout(() => func.apply(this, args), delay);
-                };
-            };
-            
-            // Database Operations
-            async function saveContact(contactObj) {
-                try {
-                    await addDoc(collection(db, `artifacts/${appId}/public/data/contacts`), contactObj);
-                    showMessage('Contact added successfully!', 'success');
-                    console.log("Contact added to Firestore.");
-                    hideForm();
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                    showMessage('Error adding contact. Please try again.', 'error');
-                }
-            }
-
-            async function updateContact(id, partial) {
-                try {
-                    const refDoc = doc(db, `artifacts/${appId}/public/data/contacts`, id);
-                    await updateDoc(refDoc, partial);
-                    showMessage('Contact updated successfully!', 'success');
-                    console.log("Contact updated in Firestore.");
-                    hideForm();
-                } catch (e) {
-                    console.error("Error updating document: ", e);
-                    showMessage('Error updating contact. Please try again.', 'error');
-                }
-            }
-
-            async function deleteContact(id) {
-                try {
-                    const refDoc = doc(db, `artifacts/${appId}/public/data/contacts`, id);
-                    await deleteDoc(refDoc);
-                    showMessage('Contact deleted successfully!', 'success');
-                    console.log("Contact deleted from Firestore.");
-                } catch (e) {
-                    console.error("Error deleting document: ", e);
-                    showMessage('Error deleting contact. Please try again.', 'error');
-                }
-            }
-
-            function renderFilteredContacts() {
-                console.log("Rendering filtered contacts.");
-                contactsTableBody.innerHTML = '';
-                
-                let filteredList = [...allContacts];
-
-                const currentProcess = filterCurrentProcess.value;
-                const paymentStatus = filterPaymentStatus.value;
-                const searchTerm = searchContactNumber.value.trim().toLowerCase();
-                
-                if (currentProcess !== 'all') {
-                    filteredList = filteredList.filter(item => item.currentPaymentProcess === currentProcess);
-                }
-                if (paymentStatus !== 'all') {
-                    filteredList = filteredList.filter(item => item.paymentStatus === paymentStatus);
-                }
-                if (searchTerm) {
-                    filteredList = filteredList.filter(item => 
-                        item.contactNumber && item.contactNumber.toLowerCase().includes(searchTerm)
-                    );
-                }
-                
-                if (filteredList.length === 0) {
-                    contactsTableBody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-slate-500">No contacts found.</td></tr>`;
-                    return;
-                }
-
-                filteredList.forEach(contact => {
-                    const totalPayments = (contact.advancePaymentAmount || 0) + (contact.partPaymentAmount || 0) + (contact.finalPaymentAmount || 0) + (contact.variationAmount || 0) + (contact.retentionAmount || 0);
-                    const remainingBalance = ((contact.contactPrice || 0) + (contact.pSumPrice || 0) + (contact.contingencies || 0)) - totalPayments;
-
-                    let processBgClass = 'bg-white';
-                    switch (contact.currentPaymentProcess) {
-                        case 'Advance Payment':
-                            processBgClass = 'bg-green-100';
-                            break;
-                        case 'Part Payment':
-                            processBgClass = 'bg-blue-100';
-                            break;
-                        case 'Final Payment':
-                            processBgClass = 'bg-yellow-100';
-                            break;
-                        case 'Variation':
-                            processBgClass = 'bg-red-100';
-                            break;
-                        case 'Retention':
-                            processBgClass = 'bg-purple-100';
-                            break;
-                    }
-
-                    const row = `
-                        <tr class="hover:bg-gray-50 transition-colors duration-200">
-                            <td class="p-4 border-r border-b border-slate-200">${contact.contactName || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200">${contact.contactNumber || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200">${contact.contractor || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200 text-right">$${(contact.contactPrice || 0).toFixed(2)}</td>
-                            <td class="p-4 border-r border-b border-slate-200 text-right">$${(contact.pSumPrice || 0).toFixed(2)}</td>
-                            <td class="p-4 border-r border-b border-slate-200 text-right">$${(contact.contingencies || 0).toFixed(2)}</td>
-                            <td class="p-4 border-r border-b border-slate-200">
-                                <ul class="table-payment-list space-y-2">
-                                    <li>Advance: $${(contact.advancePaymentAmount || 0).toFixed(2)}</li>
-                                    <li>Part: $${(contact.partPaymentAmount || 0).toFixed(2)}</li>
-                                    <li>Final: $${(contact.finalPaymentAmount || 0).toFixed(2)}</li>
-                                    <li>Variation: $${(contact.variationAmount || 0).toFixed(2)}</li>
-                                    <li>Retention: $${(contact.retentionAmount || 0).toFixed(2)}</li>
-                                </ul>
-                            </td>
-                            <td class="p-4 border-r border-b border-slate-200 text-right">$${totalPayments.toFixed(2)}</td>
-                            <td class="p-4 border-r border-b border-slate-200 text-right">$${remainingBalance.toFixed(2)}</td>
-                            <td class="p-4 border-r border-b border-slate-200">${contact.relevantOfficer || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200">${contact.paymentStatus || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200 ${processBgClass}">${contact.currentPaymentProcess || 'N/A'}</td>
-                            <td class="p-4 border-r border-b border-slate-200">${contact.notes || 'N/A'}</td>
-                            <td class="p-4 border-b border-slate-200 space-y-2 flex flex-col justify-center items-center">
-                                <button data-id="${contact.id}" class="edit-btn bg-yellow-400 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-4 rounded-full transition-colors w-full">Edit</button>
-                                <button data-id="${contact.id}" class="delete-btn bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-4 rounded-full transition-colors w-full">Delete</button>
-                            </td>
-                        </tr>
-                    `;
-                    contactsTableBody.insertAdjacentHTML('beforeend', row);
-                });
-
-                // Attach event listeners for new buttons
-                document.querySelectorAll('.edit-btn').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const id = e.target.dataset.id;
-                        const contactToEdit = allContacts.find(c => c.id === id);
-                        if (contactToEdit) {
-                            editingId = id;
-                            formTitle.textContent = "Edit Contact";
-                            submitBtn.textContent = "Update Contact";
+                <!-- Form -->
+                <div class="xl:col-span-1" id="formCard">
+                    <div class="bg-white rounded-[2rem] border border-slate-100 shadow-2xl overflow-hidden sticky top-10">
+                        <div class="p-8 pb-4">
+                            <div id="formBadge" class="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
+                                Registration Mode
+                            </div>
+                            <h3 id="formTitle" class="text-2xl font-black text-slate-800 leading-tight">Asset Modification</h3>
+                            <p class="text-sm text-slate-400 mt-1 font-medium">Fill in the technical and assignment details below.</p>
+                        </div>
+                        
+                        <form id="computerForm" class="p-8 pt-4 space-y-6">
+                            <input type="hidden" id="docId">
                             
-                            // Populate form fields
-                            for (const key in contactToEdit) {
-                                const input = document.getElementById(key);
-                                if (input) {
-                                    input.value = contactToEdit[key];
-                                }
-                            }
-                            showForm();
-                        }
-                    });
-                });
+                            <div class="space-y-5 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-2">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unique Asset ID*</label>
+                                        <input id="assetId" required placeholder="ADM-PC-102" 
+                                               class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-semibold">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type</label>
+                                        <select id="type" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                            <option value="Laptop">Laptop</option>
+                                            <option value="Desktop">Desktop</option>
+                                            <option value="Workstation">Workstation</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Health State</label>
+                                        <select id="status" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                            <option value="Working">Working</option>
+                                            <option value="Repair">Repair</option>
+                                            <option value="Scrap">Scrap</option>
+                                        </select>
+                                    </div>
+                                </div>
 
-                document.querySelectorAll('.delete-btn').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const id = e.target.dataset.id;
-                        showConfirmModal(id);
-                    });
-                });
-            }
+                                <div id="desktopFields" class="hidden animate-fade-in p-5 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
+                                    <h4 class="text-xs font-bold text-blue-600 flex items-center"><i class="fas fa-microchip mr-2"></i> Desktop Peripherals</h4>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">UPS Status</label>
+                                            <select id="upsStatus" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-blue-100 text-sm font-semibold outline-none">
+                                                <option value="Working">Working</option>
+                                                <option value="Faulty">Faulty</option>
+                                                <option value="None">No UPS</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Display Model</label>
+                                            <input id="monitorDetails" placeholder="Samsung 27''" class="w-full mt-1 px-4 py-2 bg-white rounded-xl border border-blue-100 text-sm font-semibold outline-none">
+                                        </div>
+                                    </div>
+                                </div>
 
-            // Event Listeners
-            showFormBtn.addEventListener('click', showForm);
-            cancelFormBtn.addEventListener('click', hideForm);
-            clearFormBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                form.reset();
-            });
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brand</label>
+                                        <input id="brand" placeholder="Apple" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model Name</label>
+                                        <input id="model" placeholder="MacBook Air" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                    </div>
+                                </div>
 
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const contactData = formToObject(form);
-                if (editingId) {
-                    await updateContact(editingId, contactData);
-                } else {
-                    await saveContact(contactData);
-                }
-            });
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-1">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">User Assignment</label>
+                                        <input id="assignedUser" placeholder="John Doe" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                    </div>
+                                    <div class="col-span-1">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</label>
+                                        <input id="department" placeholder="IT Ops" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold">
+                                    </div>
+                                </div>
 
-            confirmYesBtn.addEventListener('click', async () => {
-                if (deleteId) {
-                    await deleteContact(deleteId);
-                    hideConfirmModal();
-                }
-            });
+                                <div>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Specs (CPU/RAM/DISK/OS)</label>
+                                    <div class="grid grid-cols-2 gap-2 mt-1">
+                                        <input id="processor" placeholder="M2 Pro" class="px-4 py-2 bg-slate-50 rounded-xl border-none outline-none font-medium text-sm">
+                                        <input id="ram" placeholder="16GB" class="px-4 py-2 bg-slate-50 rounded-xl border-none outline-none font-medium text-sm">
+                                        <input id="storage" placeholder="512GB SSD" class="px-4 py-2 bg-slate-50 rounded-xl border-none outline-none font-medium text-sm">
+                                        <input id="os" placeholder="macOS Sonoma" class="px-4 py-2 bg-slate-50 rounded-xl border-none outline-none font-medium text-sm">
+                                    </div>
+                                </div>
 
-            confirmNoBtn.addEventListener('click', hideConfirmModal);
+                                <div>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Audit Notes</label>
+                                    <textarea id="remarks" rows="3" class="w-full px-5 py-3 mt-1 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none font-semibold resize-none"></textarea>
+                                </div>
+                            </div>
 
-            filterCurrentProcess.addEventListener('change', renderFilteredContacts);
-            filterPaymentStatus.addEventListener('change', renderFilteredContacts);
-            
-            // Debounced search
-            searchContactNumber.addEventListener('input', debounce(renderFilteredContacts, 300));
+                            <div class="pt-6 border-t border-slate-100 flex flex-col space-y-3">
+                                <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all flex items-center justify-center space-x-3 transform active:scale-95">
+                                    <i class="fas fa-floppy-disk"></i>
+                                    <span>Commit Changes</span>
+                                </button>
+                                <button type="button" id="cancelBtn" class="hidden w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-2xl transition-all">
+                                    Discard Edits
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
 
-            clearFiltersBtn.addEventListener('click', () => {
-                filterCurrentProcess.value = 'all';
-                filterPaymentStatus.value = 'all';
-                searchContactNumber.value = '';
-                renderFilteredContacts();
-            });
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // --- MAIN APPLICATION LOGIC ---
-            // The onAuthStateChanged listener is CRUCIAL. It ensures Firebase is ready
-            // and the user is authenticated before we try to access the database.
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    // Sign in anonymously if no user is found
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                }
-                
-                if (!isAuthReady) {
-                    isAuthReady = true;
-                    console.log("2. Auth state is ready. Starting Firestore listener.");
-                    userIdDisplay.textContent = `Current User ID: ${auth.currentUser.uid}`;
-                    
-                    // Attach the real-time listener
-                    const contactsCol = collection(db, `artifacts/${appId}/public/data/contacts`);
-                    unsubscribe = onSnapshot(contactsCol, (snapshot) => {
-                        console.log("3. Firestore data received.");
-                        allContacts = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        renderFilteredContacts();
-                    }, (error) => {
-                        console.error("Error with Firestore snapshot: ", error);
-                        contactsTableBody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-red-500">Error loading data. Please check your permissions.</td></tr>`;
-                    });
-                }
-            });
-        });
-    </script>
+const firebaseConfig = JSON.parse(__firebase_config);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'assetflow-enterprise-v1';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let computers = [];
+let currentUser = null;
+
+// UI Refs
+const form = document.getElementById("computerForm");
+const table = document.getElementById("computerTable");
+const searchInput = document.getElementById("searchInput");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const submitBtn = document.getElementById("submitBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const formTitle = document.getElementById("formTitle");
+const formBadge = document.getElementById("formBadge");
+const typeSelect = document.getElementById("type");
+const desktopFields = document.getElementById("desktopFields");
+
+// Details Modal Refs
+const detailsModal = document.getElementById("detailsModal");
+
+// Toggle Desktop Fields
+typeSelect.addEventListener('change', () => {
+    desktopFields.classList.toggle('hidden', typeSelect.value !== 'Desktop');
+});
+
+// Authentication and Initialization
+const initializeSystem = async () => {
+    try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+            await signInAnonymously(auth);
+        }
+    } catch (e) {
+        console.error("Auth Error", e);
+    }
+};
+
+initializeSystem();
+
+onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+        document.getElementById("userIdDisplay").innerText = user.uid;
+        document.getElementById("userIcon").innerText = user.uid.charAt(0).toUpperCase();
+        setupSync();
+    }
+});
+
+function setupSync() {
+    if (!currentUser) return;
+    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'computers');
+    
+    onSnapshot(colRef, (snapshot) => {
+        computers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        refreshStats();
+        renderTable(computers);
+    }, (err) => console.error("Firestore Error", err));
+}
+
+function refreshStats() {
+    document.getElementById("statTotal").innerText = computers.length;
+    document.getElementById("statWorking").innerText = computers.filter(c => c.status === 'Working').length;
+    document.getElementById("statRepair").innerText = computers.filter(c => c.status === 'Repair').length;
+    document.getElementById("statScrap").innerText = computers.filter(c => c.status === 'Scrap').length;
+}
+
+function renderTable(list) {
+    if (list.length === 0) {
+        table.innerHTML = `<tr><td colspan="4" class="p-20 text-center text-slate-400 font-medium">No records found. Click 'New Registration' to start.</td></tr>`;
+        return;
+    }
+
+    table.innerHTML = list.map(c => {
+        let statusClass = "bg-slate-100 text-slate-500";
+        if (c.status === 'Working') statusClass = "bg-emerald-100 text-emerald-600";
+        if (c.status === 'Repair') statusClass = "bg-amber-100 text-amber-600";
+        if (c.status === 'Scrap') statusClass = "bg-rose-100 text-rose-600";
+
+        return `
+            <tr class="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-500" onclick="viewDetails('${c.id}')">
+                <td class="px-8 py-5">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-blue-600 shadow-sm transition-all mr-4">
+                            <i class="fas ${c.type === 'Laptop' ? 'fa-laptop' : 'fa-desktop-tower'}"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-black text-slate-800">${c.assetId}</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${c.brand || 'GENERIC'} ${c.model || ''}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-8 py-5">
+                    <p class="text-sm font-bold text-slate-700">${c.assignedUser || 'Vault'}</p>
+                    <p class="text-[10px] text-slate-400 font-medium uppercase">${c.department || 'N/A'}</p>
+                </td>
+                <td class="px-8 py-5">
+                    <span class="status-badge ${statusClass}">
+                        <span class="w-1.5 h-1.5 rounded-full bg-current mr-2 animate-pulse"></span>
+                        ${c.status}
+                    </span>
+                </td>
+                <td class="px-8 py-5 text-right" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-end space-x-1">
+                        <button onclick="editComputer('${c.id}')" class="p-3 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                            <i class="fas fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deleteComputer('${c.id}')" class="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    loadingOverlay.classList.remove("hidden");
+    const docId = document.getElementById("docId").value;
+    
+    const payload = {
+        assetId: document.getElementById("assetId").value,
+        type: document.getElementById("type").value,
+        brand: document.getElementById("brand").value,
+        model: document.getElementById("model").value,
+        assignedUser: document.getElementById("assignedUser").value,
+        department: document.getElementById("department").value,
+        status: document.getElementById("status").value,
+        processor: document.getElementById("processor").value,
+        ram: document.getElementById("ram").value,
+        storage: document.getElementById("storage").value,
+        os: document.getElementById("os").value,
+        remarks: document.getElementById("remarks").value,
+        upsStatus: document.getElementById("upsStatus").value,
+        monitorDetails: document.getElementById("monitorDetails").value,
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        if (docId) {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'computers', docId), payload);
+        } else {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'computers'), { ...payload, createdAt: new Date().toISOString() });
+        }
+        resetForm();
+    } catch (err) {
+        console.error("Save Fail", err);
+    } finally {
+        loadingOverlay.classList.add("hidden");
+    }
+});
+
+window.viewDetails = (id) => {
+    const c = computers.find(x => x.id === id);
+    if (!c) return;
+
+    document.getElementById("modalAssetId").innerText = c.assetId;
+    document.getElementById("modalSub").innerText = `${c.type} • ${c.brand} ${c.model}`;
+    document.getElementById("mCpu").innerText = c.processor || 'Not set';
+    document.getElementById("mRam").innerText = c.ram || 'Not set';
+    document.getElementById("mStorage").innerText = c.storage || 'Not set';
+    document.getElementById("mOs").innerText = c.os || 'Not set';
+    document.getElementById("mUser").innerText = c.assignedUser || 'Unassigned';
+    document.getElementById("mDept").innerText = c.department || 'General';
+    document.getElementById("mRemarks").innerText = c.remarks || 'No detailed audit notes available.';
+    
+    const iconEl = document.getElementById("modalIcon");
+    iconEl.innerHTML = `<i class="fas ${c.type === 'Laptop' ? 'fa-laptop' : 'fa-desktop'}"></i>`;
+
+    const statusEl = document.getElementById("mStatus");
+    let badgeClass = "bg-slate-100 text-slate-500";
+    if (c.status === 'Working') badgeClass = "bg-emerald-500 text-white";
+    if (c.status === 'Repair') badgeClass = "bg-amber-500 text-white";
+    if (c.status === 'Scrap') badgeClass = "bg-rose-500 text-white";
+    statusEl.innerHTML = `<span class="px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${badgeClass}">${c.status}</span>`;
+
+    document.getElementById("modalEditBtn").onclick = () => { closeModal(); editComputer(id); };
+
+    detailsModal.classList.remove("hidden");
+};
+
+window.closeModal = () => {
+    detailsModal.classList.add("hidden");
+};
+
+window.editComputer = (id) => {
+    const c = computers.find(x => x.id === id);
+    if (!c) return;
+
+    document.getElementById("docId").value = id;
+    Object.keys(c).forEach(key => {
+        const el = document.getElementById(key);
+        if (el) el.value = c[key] || '';
+    });
+
+    typeSelect.dispatchEvent(new Event('change'));
+    
+    formBadge.innerText = "Modification Mode";
+    formBadge.classList.replace("bg-blue-50", "bg-amber-50");
+    formBadge.classList.replace("text-blue-600", "text-amber-600");
+    formTitle.innerText = "Update Record";
+    submitBtn.innerHTML = `<i class="fas fa-check-circle mr-2"></i> Update Record`;
+    cancelBtn.classList.remove("hidden");
+    document.getElementById("formCard").scrollIntoView({ behavior: 'smooth' });
+};
+
+window.deleteComputer = async (id) => {
+    const isConfirmed = await new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = "fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in";
+        overlay.innerHTML = `
+            <div class="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl">
+                <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 text-2xl shadow-inner">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-800">Critical Deletion</h3>
+                <p class="text-slate-500 mt-2 text-sm leading-relaxed font-medium">This action will permanently wipe this asset record from the central server. Continue?</p>
+                <div class="flex space-x-3 mt-8">
+                    <button id="confCancel" class="flex-1 py-3 bg-slate-100 rounded-2xl font-bold text-slate-600">No, Go Back</button>
+                    <button id="confOk" class="flex-1 py-3 bg-rose-600 rounded-2xl font-bold text-white shadow-lg shadow-rose-200">Delete Forever</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        document.getElementById('confCancel').onclick = () => { overlay.remove(); resolve(false); };
+        document.getElementById('confOk').onclick = () => { overlay.remove(); resolve(true); };
+    });
+
+    if (!isConfirmed) return;
+
+    loadingOverlay.classList.remove("hidden");
+    try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'computers', id));
+    } catch (err) {
+        console.error("Delete Fail", err);
+    } finally {
+        loadingOverlay.classList.add("hidden");
+    }
+};
+
+searchInput.addEventListener("input", () => {
+    const term = searchInput.value.toLowerCase();
+    const filtered = computers.filter(c => 
+        (c.assetId || "").toLowerCase().includes(term) ||
+        (c.assignedUser || "").toLowerCase().includes(term) ||
+        (c.department || "").toLowerCase().includes(term) ||
+        (c.brand || "").toLowerCase().includes(term) ||
+        (c.model || "").toLowerCase().includes(term)
+    );
+    renderTable(filtered);
+});
+
+cancelBtn.onclick = resetForm;
+
+function resetForm() {
+    form.reset();
+    document.getElementById("docId").value = "";
+    desktopFields.classList.add('hidden');
+    formBadge.innerText = "Registration Mode";
+    formBadge.classList.replace("bg-amber-50", "bg-blue-50");
+    formBadge.classList.replace("text-amber-600", "text-blue-600");
+    formTitle.innerText = "Asset Modification";
+    submitBtn.innerHTML = `<i class="fas fa-floppy-disk mr-2"></i> Commit Changes`;
+    cancelBtn.classList.add("hidden");
+}
+
+// Close modal on outside click
+detailsModal.onclick = (e) => { if (e.target === detailsModal) closeModal(); };
+</script>
 </body>
 </html>
