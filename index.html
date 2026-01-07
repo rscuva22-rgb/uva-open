@@ -87,6 +87,11 @@
             transition: border-color 0.3s ease;
         }
 
+        input[type="file"] {
+            padding: 8px;
+            font-size: 14px;
+        }
+
         input:focus, select:focus {
             outline: none;
             border-color: var(--accent);
@@ -163,19 +168,19 @@
 
         <div class="row">
             <div class="form-group">
-                <label>SBA Registration Number</label>
-                <input type="text" name="sbaNumber" placeholder="SLB/SBA Number" required>
+                <label>Date of Birth</label>
+                <input type="date" name="dob" required>
             </div>
             <div class="form-group">
-                <label>Contact Number</label>
-                <input type="tel" name="phone" placeholder="07XXXXXXXX" required>
+                <label>SBA Registration Number</label>
+                <input type="text" name="sbaNumber" placeholder="SLB/SBA Number" required>
             </div>
         </div>
 
         <div class="row">
             <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" name="email" placeholder="for confirmation slip" required>
+                <label>Contact Number</label>
+                <input type="tel" name="phone" placeholder="07XXXXXXXX" required>
             </div>
             <div class="form-group">
                 <label>Gender</label>
@@ -185,6 +190,11 @@
                     <option>Female</option>
                 </select>
             </div>
+        </div>
+
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" name="email" placeholder="for confirmation slip" required>
         </div>
 
         <div class="row">
@@ -215,6 +225,12 @@
             <input type="text" name="partner" placeholder="Enter doubles partner name">
         </div>
 
+        <div class="form-group">
+            <label>Upload Payment Slip (Image)</label>
+            <input type="file" name="paymentSlip" id="paymentSlip" accept="image/*" required>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Upload a clear photo of the bank/online transfer slip.</p>
+        </div>
+
         <button type="submit" id="submitBtn">Complete Registration</button>
     </form>
 
@@ -224,14 +240,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-    const scriptURL = "https://script.google.com/macros/s/AKfycbzThpmn2QXkekB5C8Aw_gmDp0wvNc6S-w5T31dXfOALqYIos6tvh2J2Ie8lG-ifO93SBQ/exec"; 
+    const scriptURL = "https://script.google.com/macros/s/AKfycby-xW9zofDMJmSZwmlmin7vv4n6DRvT_AE1P-aL7NXRS2F7ortHhnnRkU13GDw3_B2O/exec"; 
     const form = document.forms['badmintonForm'];
     const msg = document.getElementById("msg");
     const submitBtn = document.getElementById("submitBtn");
     const eventType = document.getElementById("eventType");
     const partnerGroup = document.getElementById("partnerGroup");
 
-    // Toggle partner field visibility
     eventType.addEventListener('change', () => {
         if (eventType.value === "Doubles") {
             partnerGroup.style.display = "block";
@@ -242,21 +257,41 @@
         }
     });
 
-    form.addEventListener('submit', e => {
+    form.addEventListener('submit', async e => {
         e.preventDefault();
         
         submitBtn.disabled = true;
-        submitBtn.innerText = "Processing...";
+        submitBtn.innerText = "Processing Slip...";
         msg.className = "";
-        msg.innerHTML = "Submitting registration details...";
+        msg.innerHTML = "Preparing submission...";
 
-        fetch(scriptURL, { method: 'POST', body: new FormData(form)})
+        const fileInput = document.getElementById('paymentSlip');
+        const file = fileInput.files[0];
+        let base64File = "";
+
+        if (file) {
+            const reader = new FileReader();
+            base64File = await new Promise((resolve) => {
+                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        msg.innerHTML = "Uploading data...";
+        submitBtn.innerText = "Uploading Data...";
+
+        const formData = new FormData(form);
+        // We append the base64 string for the backend script to handle Drive upload
+        formData.append('paymentSlipBase64', base64File);
+
+        fetch(scriptURL, { method: 'POST', body: formData })
         .then(response => {
             msg.className = "success-text";
-            msg.innerHTML = "Success! 🏆 Your confirmation slip is downloading...";
+            msg.innerHTML = "Success! 🏆 Registration saved and slip uploaded.";
             
             generatePDF(
                 form.name.value,
+                form.dob.value,
                 form.sbaNumber.value,
                 form.phone.value,
                 form.email.value,
@@ -273,76 +308,52 @@
         })
         .catch(error => {
             msg.className = "error-text";
-            msg.innerHTML = "Connection Error. Please try again.";
+            msg.innerHTML = "Upload Error. Please check your connection.";
             submitBtn.disabled = false;
             submitBtn.innerText = "Try Again";
         });
     });
 
-    function generatePDF(name, sba, phone, email, gender, category, event, partner){
+    function generatePDF(name, dob, sba, phone, email, gender, category, event, partner){
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-
-        // Header Background
         doc.setFillColor(27, 51, 88);
         doc.rect(0, 0, 210, 45, 'F');
-        
-        // Header Text
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.text("UVA OPEN BANDARAWELA 2026", 20, 25);
         doc.setFontSize(12);
         doc.text("Kinigama Indoor Stadium | Feb 13-14", 20, 35);
-        
-        // Body Content
         doc.setTextColor(40, 40, 40);
         doc.setFontSize(16);
         doc.text("REGISTRATION CONFIRMATION", 20, 60);
-        
         doc.setDrawColor(200, 200, 200);
         doc.line(20, 65, 190, 65);
-
         doc.setFontSize(12);
         const startY = 80;
-        const lineHeight = 10;
-        
         const data = [
             ["Player Name:", name],
+            ["Date of Birth:", dob],
             ["SBA Number:", sba],
             ["Contact No:", phone],
-            ["Email Address:", email],
+            ["Email:", email],
             ["Gender:", gender],
             ["Category:", category],
             ["Event Type:", event]
         ];
-
-        if(partner) data.push(["Partner Name:", partner]);
-
+        if(partner) data.push(["Partner:", partner]);
         data.forEach((row, i) => {
             doc.setFont(undefined, 'bold');
-            doc.text(row[0], 20, startY + (i * lineHeight));
+            doc.text(row[0], 20, startY + (i * 10));
             doc.setFont(undefined, 'normal');
-            doc.text(row[1], 70, startY + (i * lineHeight));
+            doc.text(row[1], 70, startY + (i * 10));
         });
-
-        // Footer Info
         doc.setDrawColor(27, 51, 88);
-        doc.setLineWidth(0.5);
         doc.line(20, 160, 190, 160);
-        
         doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("INSTRUCTIONS:", 20, 170);
-        doc.text("1. Please present a digital or printed copy of this slip at the reporting desk.", 20, 178);
-        doc.text("2. Reporting time is 8:00 AM on the event date.", 20, 184);
-        doc.text("3. Proper badminton attire and non-marking shoes are mandatory.", 20, 190);
-
-        doc.setFontSize(9);
-        doc.text("Generated on: " + new Date().toLocaleString(), 20, 280);
-
-        doc.save(`UvaOpen_2026_${name.replace(/\s+/g, '_')}.pdf`);
+        doc.text("Reporting time: 8:00 AM. Bring this slip.", 20, 170);
+        doc.save(`UvaOpen_${name.replace(/\s+/g, '_')}.pdf`);
     }
 </script>
-
 </body>
 </html>
