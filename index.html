@@ -14,6 +14,7 @@
             --accent-hover: #3AAFA9;
             --text-main: #FFFFFF;
             --text-muted: #A5D7E8;
+            --error: #ff5f5f;
         }
 
         body {
@@ -97,6 +98,14 @@
             border-color: var(--accent);
         }
 
+        .security-box {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px dashed var(--accent);
+            margin-bottom: 20px;
+        }
+
         .row {
             display: flex;
             gap: 20px;
@@ -140,7 +149,7 @@
         }
 
         .success-text { color: #48bb78; }
-        .error-text { color: #f56565; }
+        .error-text { color: var(--error); }
 
         @media (max-width: 600px) {
             .row { flex-direction: column; gap: 0; }
@@ -161,6 +170,12 @@
     </div>
 
     <form name="badmintonForm" id="regForm">
+        <!-- Security Check -->
+        <div class="security-box">
+            <label>Registration Access Code</label>
+            <input type="text" id="accessCode" placeholder="Enter the code provided by organizers" required>
+        </div>
+
         <div class="form-group">
             <label>Player Full Name</label>
             <input type="text" name="name" placeholder="As it should appear on certificate" required>
@@ -240,6 +255,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
+    // THE SECRET ACCESS CODE
+    const VALID_CODE = "UVA2026"; 
+
     const scriptURL = "https://script.google.com/macros/s/AKfycby-xW9zofDMJmSZwmlmin7vv4n6DRvT_AE1P-aL7NXRS2F7ortHhnnRkU13GDw3_B2O/exec"; 
     const form = document.forms['badmintonForm'];
     const msg = document.getElementById("msg");
@@ -259,6 +277,14 @@
 
     form.addEventListener('submit', async e => {
         e.preventDefault();
+
+        // Check Access Code First
+        const userCode = document.getElementById('accessCode').value;
+        if (userCode !== VALID_CODE) {
+            msg.className = "error-text";
+            msg.innerHTML = "❌ Invalid Access Code. Please contact the organizers.";
+            return;
+        }
         
         submitBtn.disabled = true;
         submitBtn.innerText = "Processing Slip...";
@@ -281,7 +307,6 @@
         submitBtn.innerText = "Uploading Data...";
 
         const formData = new FormData(form);
-        // We append the base64 string for the backend script to handle Drive upload
         formData.append('paymentSlipBase64', base64File);
 
         fetch(scriptURL, { method: 'POST', body: formData })
